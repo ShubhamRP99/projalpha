@@ -3,7 +3,6 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
 import { User as SelectUser, extendedInsertUserSchema, loginSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { storage } from "./storage";
@@ -14,8 +13,15 @@ declare global {
   }
 }
 
-// Promisify scrypt
-const scryptAsync = promisify(scrypt);
+// Manual Promise wrapper for scrypt
+function scryptAsync(password: string, salt: string, keylen: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(password, salt, keylen, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
+}
 
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");

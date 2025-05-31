@@ -5,6 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { User as SelectUser, extendedInsertUserSchema, loginSchema } from "@shared/schema";
 import { ZodError } from "zod";
+import { storage } from "./storage";
 
 declare global {
   namespace Express {

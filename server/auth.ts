@@ -3,6 +3,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 import { User as SelectUser, extendedInsertUserSchema, loginSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { storage } from "./storage";
@@ -13,26 +14,20 @@ declare global {
   }
 }
 
+// Promisify scrypt
+const scryptAsync = promisify(scrypt);
+
 async function hashPassword(password: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const salt = randomBytes(16).toString("hex");
-    scrypt(password, salt, 64, (err, derivedKey) => {
-      if (err) reject(err);
-      resolve(`${derivedKey.toString("hex")}.${salt}`);
-    });
-  });
+  const salt = randomBytes(16).toString("hex");
+  const derivedKey = await scryptAsync(password, salt, 64);
+  return `${derivedKey.toString("hex")}.${salt}`;
 }
 
 async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    const [hashed, salt] = stored.split(".");
-    const hashedBuf = Buffer.from(hashed, "hex");
-    
-    scrypt(supplied, salt, 64, (err, derivedKey) => {
-      if (err) reject(err);
-      resolve(timingSafeEqual(hashedBuf, derivedKey));
-    });
-  });
+  const [hashed, salt] = stored.split(".");
+  const hashedBuf = Buffer.from(hashed, "hex");
+  const derivedKey = await scryptAsync(supplied, salt, 64);
+  return timingSafeEqual(hashedBuf, derivedKey);
 }
 
 // Helper to format ZodError
